@@ -2,6 +2,9 @@ $(function() {
 
 	"use strict";
 
+	const apiUrl = 'https://atlas.ripe.net/api/v2';
+
+	// map of RIPE (IPv4) root system tests per root-letter
 	const measurements = {
 		'a':  10309,
 		'b':  10310,
@@ -18,6 +21,7 @@ $(function() {
 		'm':  10306
 	};
 
+	// map of regexes that extract the RSO's site-specific code from a hostname.bind string
 	const regexes = {
 		'a': /^(?:rootns-|nnn1-)([a-z]{3})\d$/,
 		'b': /^b\d-([a-z]{3})$/,
@@ -31,24 +35,26 @@ $(function() {
 		'j': /^(?:rootns-(?:el)?|nnn1-)([a-z]{3})\d$/,
 		'k': /^.*?\.([a-z]{2}-[a-z]{3})\.k\.ripe\.net$/,
 		'l': /^([a-z]{2}-[a-z]{3})-[a-z]{2}$/,
-		// 'l': /^[a-z]{2}\.([a-z]{2}-[a-z]{3})\.l\.root$/,
 		'm': /^m-([a-z]{3})(-[a-z]+)?-\d$/
 	};
 
-	// persistent state
-	var state = {};
+	// persistent state, to go in the URL
+	const state = {};
 
 	// local variables
-	var view, map, probeSource, props = {};
+	let props = {};		// per-probe data
+	let view, map;		// openlayers
+	let probes;			// openlayers data source object
 
 	//------------------------------------------------------------------
-	// state handling functions
+	//
+	// persistent state handling functions
 	//
 	function getDefaults() {
-		state = $.extend(true, {}, {
+		$.extend(true, state, {
 			zoom: 3,
 			center: [0, 30],
-			range: 1,
+			top: 1,
 			scale: 100
 		});
 	}
@@ -68,7 +74,10 @@ $(function() {
 	}
 
 	//------------------------------------------------------------------
-
+	//
+	// functions to handle and record hostname.bind records that do
+	// not match the expected regexes
+	//
 	const mismatches = new Map();
 
 	function logMismatch(probe, letter, hostname) {
@@ -96,19 +105,24 @@ $(function() {
 	}
 
 	//------------------------------------------------------------------
+	//
+	// progress bar handling
+	//
+	const pending = Object.keys(measurements).reduce((p, c) => (p[c] = 1, p), {});
 
-	function showProbeMeasurements(prb_id) {
-		const p = props[prb_id];
-		const { letter, ms, site } = p.fast;
-
-		const detail = Array.from(Object.entries(p.detail))
-			.sort((a, b) => a[1].ms - b[1].ms)
-			.map(([k, v]) => `${k.toUpperCase()}: ${v.ms.toFixed(1)} (${v.site.toUpperCase()})`)
-			.join(', ');
-
-		$('#measurements').text(detail);
+	function showPending() {
+		$('#progress').show();
+		$('#pending').show().text('Loading: ' + Object.keys(pending).join(' ').toUpperCase());
 	}
 
+	function hidePending() {
+		$('#progress,#pending').hide();
+	}
+
+	//------------------------------------------------------------------
+	//
+	// AJAX and data handling
+	//
 	function updateMeasurements(probe, letter, hostname, ms) {
 		if (!hostname) return;
 		hostname = hostname.toLowerCase();
@@ -123,26 +137,17 @@ $(function() {
 		const p = props[probe] = props[probe] || { detail: {} };
 
 		p.detail[letter] = { site, ms };
+
+		// cache fastest entry found
 		if (p.fast === undefined || ms < p.fast.ms) {
 		  p.fast = { letter, site, ms };
 		}
 	}
 
-	const pending = Object.keys(measurements).reduce((p, c) => (p[c] = 1, p), {});
-
-	function showPending() {
-		$('#progress').show();
-		$('#pending').show().text('Loading: ' + Object.keys(pending).join(' ').toUpperCase());
-	}
-
-	function hidePending() {
-		$('#progress,#pending').hide();
-	}
-
 	async function loadMeasurements(letter) {
 
 		const m = measurements[letter];
-		const url = `https://atlas.ripe.net/api/v2/measurements/${m}/latest/?fields=responses.0.response_time,responses.0.abuf.answers.0.data.0&freshness=1800`;
+		const url = `${apiUrl}/measurements/${m}/latest/?fields=responses.0.response_time,responses.0.abuf.answers.0.data.0&freshness=1800`;
 
 		showPending();
 
@@ -163,12 +168,14 @@ $(function() {
 	}
 
 	//------------------------------------------------------------------
-
+	//
+	// per-probe meta-data handling
+	//
 	const meta = new Map();
 
 	function loadProbeMeta(prb_id) {
 		if (!meta.has(prb_id)) {
-			const url = `https://atlas.ripe.net/api/v2/probes/${prb_id}/`;
+			const url = `${apiUrl}/probes/${prb_id}/`;
 			const data = fetch(url).then(res => res.json());
 			meta.set(prb_id, data);
 		}
@@ -187,8 +194,10 @@ $(function() {
 	}
 
 	//------------------------------------------------------------------
-
-	const style = {};
+	//
+	// per-probe styling
+	//
+	const styles = new Map();						// style cache
 
 	function getProbeStyle(feature, resolution) {
 
@@ -196,15 +205,16 @@ $(function() {
 		const p = props[id];
 		if (!p) return;
 
+		// vary circle size by zoom factor
 		let size = Math.max(3, Math.min(6, Math.floor(20000 / resolution)));
 		size = Math.floor(10 * size) / 10.0;
 
 		let ms;
-		if (state.range === 1) {
+		if (state.top === 1) {						// short cut
 			ms = p.fast.ms;
 		} else {
 			const times = Object.values(p.detail).map(o => o.ms).sort((a, b) => a - b);
-			const index = Math.min(state.range - 1, times.length - 1);
+			const index = Math.min(state.top - 1, times.length - 1);
 			ms = times[index];
 		}
 
@@ -215,21 +225,33 @@ $(function() {
 		const col = 'hsla(' + [h, '80%', '50%', 0.6] + ')';
 		const key = state.scale + '|' + h + '|' + size.toFixed(1);
 
-		if (!(key in style)) {
-			style[key] = new ol.style.Style({
+		if (!styles.has(key)) {
+			const s = new ol.style.Style({
 				image: new ol.style.Circle({
 					radius: size,
 					fill: new ol.style.Fill({color: col}),
-					// stroke: new ol.style.Stroke({color: 'rgba(0, 0, 0, 0.3)', width: 0.5})
 				}),
 				zIndex: ms
 			});
+			styles.set(key, s);
 		}
 
-		return style[key];
+		return styles.get(key);
 	}
 
 	//------------------------------------------------------------------
+
+	function showProbeMeasurements(prb_id) {
+		const p = props[prb_id];
+		const { letter, ms, site } = p.fast;
+
+		const detail = Array.from(Object.entries(p.detail))
+			.sort((a, b) => a[1].ms - b[1].ms)
+			.map(([k, v]) => `${k.toUpperCase()}: ${v.ms.toFixed(1)} (${v.site.toUpperCase()})`)
+			.join(', ');
+
+		$('#measurements').text(detail);
+	}
 
 	function buildMap() {
 
@@ -256,9 +278,8 @@ $(function() {
 		$('#progress').show();
 		$('#pending').show().text('Loading: probe locations');
 
-		probeSource = new ol.source.Vector({
-			url: 'https://atlas.ripe.net/api/v2/cartography/locations/',
-			// url: 'data/locations.json',
+		probes = new ol.source.Vector({
+			url: `${apiUrl}/cartography/locations`,
 			format: new ol.format.GeoJSON(),
 			attributions: 'Data from <a href="https://atlas.ripe.net/" target="_blank">RIPE Atlas</a>.'
 		});
@@ -266,7 +287,7 @@ $(function() {
 		map.addLayer(
 			new ol.layer.Vector({
 					renderMode: 'image',
-					source: probeSource,
+					source: probes,
 					style: getProbeStyle
 			})
 		);
@@ -276,40 +297,13 @@ $(function() {
 		view.on(['change:center', 'change:resolution'], _.debounce(changeView, 250));
 	}
 
-	// forces the probe layer to be redrawn by faking a 'change' event
+	// force the probe layer to be redrawn by faking a 'change' event
 	function redraw() {
-		probeSource.dispatchEvent('change');
+		probes.dispatchEvent('change');
 	}
 
 	//------------------------------------------------------------------
-
-	function calculateStats(x) {
-
-		// Welford's single pass algorithm for standard deviation
-		var n = 0, mean = 0, M2 = 0;
-		for (var i = 0; i < x.length; ++i) {
-			++n;
-			var delta = x[i] - mean;
-			mean += delta / n;
-			M2 += delta * (x[i] - mean);
-		}
-
-		var variance = M2 / (n - 1);
-		var stddev = Math.sqrt(variance);
-
-		// find median
-		x.sort(function(a, b) { return a - b });
-		var mid = Math.floor(n / 2);
-		var median = x[mid];
-		if (n % 2) {
-			median += x[++mid];
-			median /= 2;
-		}
-
-		return { median: median, mean: mean, stddev : stddev };
-	}
-
-	//------------------------------------------------------------------
+	//
 	// event handlers
 	//
 
@@ -320,8 +314,8 @@ $(function() {
 		putState();
 	}
 
-	function changeRange(evt) {
-		state.range = +evt.target.value;
+	function changeTop(evt) {
+		state.top = +evt.target.value;
 		putState();
 		redraw();
 	}
@@ -332,12 +326,12 @@ $(function() {
 		redraw();
 	}
 
-	function displayRange() {
+	function displayTop() {
 		$('#rlabel').text('Fastest ' + this.value);
 	}
 
 	function displayScale() {
-		$('#slabel').text('Latency range ' + this.value);
+		$('#slabel').text('Latency range ' + this.value + 'ms');
 	}
 
 	function mouseOver(evt) {
@@ -346,29 +340,28 @@ $(function() {
 		if (prb_id === undefined) {
 			$('#map').css('cursor', '');
 			$('#meta,#measurements').hide();
-			return;
+		} else {
+			$('#map').css('cursor', 'pointer');
+			$('#meta,#measurements').show();
+			showProbeMeta(prb_id);
+			showProbeMeasurements(prb_id);
 		}
-
-		$('#map').css('cursor', 'pointer');
-		$('#meta,#measurements').show();
-		showProbeMeta(prb_id);
-		showProbeMeasurements(prb_id);
 	}
 
 	//------------------------------------------------------------------
 
-	function setupRange() {
+	function setupSliders() {
 		const n = Object.keys(measurements).length;
 
 		for (let i = 1; i <= n; ++i) {
-			$('<option>', { value: i, label: (i % 2 == 1) ? i : undefined}).appendTo('#ticks');
+			$('<option>', { value: i, label: (i % 2 == 1) ? i : undefined}).appendTo('#rticks');
 		}
 
 		$('#rinput')
-			.on('change', changeRange)
-			.on('change input', displayRange)
+			.on('change', changeTop)
+			.on('change input', displayTop)
 			.attr('max', n)
-			.val(state.range)
+			.val(state.top)
 			.trigger('input');
 
 		$('#sinput')
@@ -379,14 +372,16 @@ $(function() {
 	}
 
 	//------------------------------------------------------------------
-
+	//
+	// main application startup
+	//
 	getDefaults();
 	getState();
-	setupRange();
-
+	setupSliders();
 	buildMap();
 
-	probeSource.once('change', async () => {
+	// once the main data source has loaded, one-off trigger to get the other data
+	probes.once('change', async () => {
 		await loadAllMeasurements();
 		showMismatches();
 		hidePending();
