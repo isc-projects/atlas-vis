@@ -21,6 +21,23 @@ $(function() {
 		'm':  10306
 	};
 
+	// map of RSO names
+	const rso = {
+		'a': 'Verisign',
+		'b': 'ISI',
+		'c': 'Cogent',
+		'd': 'UMD',
+		'e': 'NASA',
+		'f': 'ISC',
+		'g': 'DISA',
+		'h': 'ARL',
+		'i': 'Netnod',
+		'j': 'Verisign',
+		'k': 'RIPE',
+		'l': 'ICANN',
+		'm': 'WIDE'
+	};
+
 	// map of regexes that extract the RSO's site-specific code from a hostname.bind string
 	const regexes = {
 		'a': /^(?:rootns-|nnn1-)([a-z]{3})\d$/,
@@ -55,7 +72,8 @@ $(function() {
 			zoom: 3,
 			center: [0, 30],
 			top: 1,
-			scale: 100
+			scale: 100,
+			letter: undefined,
 		});
 	}
 
@@ -210,7 +228,11 @@ $(function() {
 		size = Math.floor(10 * size) / 10.0;
 
 		let ms;
-		if (state.top === 1) {						// short cut
+		if (state.letter) {
+			const d = p.detail[state.letter];
+			if (!d) return;
+			ms = d.ms;
+		} else if (state.top === 1) {						// short cut
 			ms = p.fast.ms;
 		} else {
 			const times = Object.values(p.detail).map(o => o.ms).sort((a, b) => a - b);
@@ -223,7 +245,7 @@ $(function() {
 		const h = Math.floor(120 * (1 - scale));	// 120 .. 0
 
 		const col = 'hsla(' + [h, '80%', '50%', 0.6] + ')';
-		const key = state.scale + '|' + h + '|' + size.toFixed(1);
+		const key = (state.letter || '#') + '|' + state.scale + '|' + h + '|' + size.toFixed(1);
 
 		if (!styles.has(key)) {
 			const s = new ol.style.Style({
@@ -299,7 +321,9 @@ $(function() {
 
 	// force the probe layer to be redrawn by faking a 'change' event
 	function redraw() {
-		probes.dispatchEvent('change');
+		if (probes) {
+			probes.dispatchEvent('change');
+		}
 	}
 
 	//------------------------------------------------------------------
@@ -322,6 +346,13 @@ $(function() {
 
 	function changeScale(evt) {
 		state.scale = +evt.target.value;
+		putState();
+		redraw();
+	}
+
+	function changeLetter(evt) {
+		state.letter = evt.target.value || undefined;
+		$('#rinput').prop('disabled', !!state.letter);
 		putState();
 		redraw();
 	}
@@ -372,12 +403,31 @@ $(function() {
 	}
 
 	//------------------------------------------------------------------
+
+	function setupLetters() {
+
+		for (const [l, o] of Object.entries(rso)) {
+			$('<option>', {
+				value: l,
+				text: `${l.toUpperCase()} (${o})`,
+				selected: state.letter == l
+			}).appendTo('#letter');
+		}
+
+		$('#letter')
+			.on('change', changeLetter)
+			.val(state.letter)
+			.trigger('change');
+	}
+
+	//------------------------------------------------------------------
 	//
 	// main application startup
 	//
 	getDefaults();
 	getState();
 	setupSliders();
+	setupLetters();
 	buildMap();
 
 	// once the main data source has loaded, one-off trigger to get the other data

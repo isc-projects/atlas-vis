@@ -14,15 +14,19 @@ html, body {
 	left: 0; right: 0; top: 0; bottom: 0;
 }
 
-#range {
+#controls {
 	position: absolute;
+	text-align: right;
 	right: 12px;
 	top: 12px;
 }
 
-#rlabel, #slabel {
-	text-align: right;
+#rlabel, #slabel, #llabel {
 	font-size: 12px;
+}
+
+#letter {
+	margin-top: 6px;
 }
 
 #rinput, #sinput {
