@@ -21,6 +21,18 @@ html, body {
 	top: 12px;
 }
 
+#key {
+	position: absolute;
+	left: 20px;
+	bottom: 60px;
+}
+
+#legend {
+	border: 1px solid #404040;
+	width: 16px;
+	height: 200px;
+}
+
 #rlabel, #slabel, #llabel {
 	font-size: 12px;
 }

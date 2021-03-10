@@ -217,6 +217,14 @@ $(function() {
 	//
 	const styles = new Map();						// style cache
 
+	function getColour(ms, scale) {
+		let r = Math.min(ms, scale) / scale;	// 0 .. 1
+		r = Math.pow(r, 0.8);					// non-linear
+		const h = Math.floor(120 * (1 - r));	// 120 .. 0
+
+		return [h, `hsla(${h}, 80%, 50%, 0.6)`];
+	}
+
 	function getProbeStyle(feature, resolution) {
 
 		const id = feature.getId();
@@ -240,11 +248,7 @@ $(function() {
 			ms = times[index];
 		}
 
-		let scale = Math.min(ms, state.scale) / state.scale;
-		scale = Math.pow(scale, 0.8);				// non-linear
-		const h = Math.floor(120 * (1 - scale));	// 120 .. 0
-
-		const col = 'hsla(' + [h, '80%', '50%', 0.6] + ')';
+		const [h, col] = getColour(ms, state.scale);
 		const key = (state.letter || '#') + '|' + state.scale + '|' + h + '|' + size.toFixed(1);
 
 		if (!styles.has(key)) {
@@ -358,7 +362,16 @@ $(function() {
 	}
 
 	function displayTop() {
-		$('#rlabel').text('Fastest ' + this.value);
+		let v = +this.value;
+
+		let suff = "th";
+		switch (v) {
+			case 1: suff = ""; v = ""; break;
+			case 2: suff = "nd"; break;
+			case 3: suff = "rd"; break;
+		}
+
+		$('#rlabel').text(`Color by ${v}${suff} Fastest`);
 	}
 
 	function displayScale() {
@@ -376,6 +389,18 @@ $(function() {
 			$('#meta,#measurements').show();
 			showProbeMeta(prb_id);
 			showProbeMeasurements(prb_id);
+		}
+	}
+
+	//------------------------------------------------------------------
+
+	function setupLegend() {
+		const canvas = document.getElementById('legend');
+		const ctx = canvas.getContext('2d');
+		for (let y = 0; y < canvas.height; ++y) {
+			const [h, col] =  getColour(canvas.height - y, canvas.height);
+			ctx.strokeStyle = col;
+			ctx.strokeRect(0, y, canvas.width, y);
 		}
 	}
 
@@ -426,6 +451,7 @@ $(function() {
 	//
 	getDefaults();
 	getState();
+	setupLegend();
 	setupSliders();
 	setupLetters();
 	buildMap();
