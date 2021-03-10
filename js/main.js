@@ -375,7 +375,7 @@ $(function() {
 	}
 
 	function displayScale() {
-		$('#slabel').text('Latency range ' + this.value + 'ms');
+		$('#slabel').text(`Latency range 0 - ${this.value} ms`);
 	}
 
 	function mouseOver(evt) {
@@ -397,10 +397,10 @@ $(function() {
 	function setupLegend() {
 		const canvas = document.getElementById('legend');
 		const ctx = canvas.getContext('2d');
-		for (let y = 0; y < canvas.height; ++y) {
-			const [h, col] =  getColour(canvas.height - y, canvas.height);
+		for (let x = 0; x < canvas.width; ++x) {
+			const [h, col] =  getColour(x, canvas.width - 1);
 			ctx.strokeStyle = col;
-			ctx.strokeRect(0, y, canvas.width, y);
+			ctx.strokeRect(x, 0, x, canvas.height);
 		}
 	}
 

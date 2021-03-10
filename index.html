@@ -9,17 +9,24 @@
 <div id="container">
 <div id="map"> </div>
 <div id="controls">
-  <input id="sinput" type="range" min="100" max="500" list="sticks"/>
+  <div>
+    <canvas id="legend" width="200" height="16"></canvas>
+  </div>
   <div id="slabel"></div>
-  <input id="rinput" type="range" min="1" max="13" list="rticks"/>
+  <div>
+    <input id="sinput" type="range" min="100" max="500" list="sticks"/>
+  </div>
+  <br/>
   <div id="rlabel"></div>
+  <div>
+    <input id="rinput" type="range" min="1" max="13" list="rticks"/>
+  </div>
+  <div id="llabel">or by Root Letter</div>
   <select id="letter">
     <option value="">- all -</option>
   </select>
-  <div id="llabel">Root Operator</div>
 </div>
 <div id="key">
-  <canvas id="legend" width="16" height="200"></canvas>
 </div>
 <div id="progress" style="display: none"> <div class="overlay"> </div> </div>
 <div id="pending" style="display: none"> </div>
