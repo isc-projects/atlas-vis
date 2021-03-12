@@ -4,6 +4,9 @@ $(function() {
 
 	const apiUrl = 'https://atlas.ripe.net/api/v2';
 
+	// which root letters to consider
+	const letters = [ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm' ];
+
 	// map of RIPE (IPv4) root system tests per root-letter
 	const measurements = {
 		'a':  10309,
@@ -126,11 +129,11 @@ $(function() {
 	//
 	// progress bar handling
 	//
-	const pending = Object.keys(measurements).reduce((p, c) => (p[c] = 1, p), {});
+	const pending = new Set(letters);
 
 	function showPending() {
 		$('#progress').show();
-		$('#pending').show().text('Loading: ' + Object.keys(pending).join(' ').toUpperCase());
+		$('#pending').show().text('Loading: ' + Array.from(pending.values()).join(' ').toUpperCase());
 	}
 
 	function hidePending() {
@@ -174,14 +177,14 @@ $(function() {
 				updateMeasurements(+probe, letter, site, ms);
 			}
 		}).then(() => {
-			delete pending[letter];
+			pending.delete(letter);
 			showPending();
 		}).then(redraw);
 
 	}
 
 	function loadAllMeasurements() {
-		const promises = Object.keys(measurements).map(loadMeasurements);
+		const promises = letters.map(loadMeasurements);
 		return Promise.all(promises);
 	}
 
@@ -406,9 +409,11 @@ $(function() {
 
 	//------------------------------------------------------------------
 
-	function setupSliders() {
-		const n = Object.keys(measurements).length;
+	function setupTopSlider() {
 
+		const n = letters.length;
+
+		// populate option data
 		for (let i = 1; i <= n; ++i) {
 			$('<option>', { value: i, label: (i % 2 == 1) ? i : undefined}).appendTo('#rticks');
 		}
@@ -419,7 +424,9 @@ $(function() {
 			.attr('max', n)
 			.val(state.top)
 			.trigger('input');
+	}
 
+	function setupScaleSlider() {
 		$('#sinput')
 			.on('change', changeScale)
 			.on('change input', displayScale)
@@ -431,11 +438,12 @@ $(function() {
 
 	function setupLetters() {
 
-		for (const [l, o] of Object.entries(rso)) {
+		// populate dropdown
+		for (const letter of letters) {
 			$('<option>', {
-				value: l,
-				text: `${l.toUpperCase()} (${o})`,
-				selected: state.letter == l
+				value: letter,
+				text: `${letter.toUpperCase()} (${rso[letter]})`,
+				selected: state.letter == letter
 			}).appendTo('#letter');
 		}
 
@@ -452,8 +460,14 @@ $(function() {
 	getDefaults();
 	getState();
 	setupLegend();
-	setupSliders();
-	setupLetters();
+	setupScaleSlider();
+
+	if (letters.length > 1) {
+		setupTopSlider();
+		setupLetters();
+		$('#multi').show();
+	}
+
 	buildMap();
 
 	// once the main data source has loaded, one-off trigger to get the other data
