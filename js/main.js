@@ -9,19 +9,19 @@ $(function() {
 
 	// map of RIPE (IPv4) root system tests per root-letter
 	const measurements = {
-		'a':  10309,
-		'b':  10310,
-		'c':  10311,
-		'd':  10312,
-		'e':  10313,
-		'f':  10304,
-		'g':  10314,
-		'h':  10315,
-		'i':  10305,
-		'j':  10316,
-		'k':  10301,
-		'l':  10308,
-		'm':  10306
+		'a': 10309,
+		'b': 10310,
+		'c': 10311,
+		'd': 10312,
+		'e': 10313,
+		'f': 10304,
+		'g': 10314,
+		'h': 10315,
+		'i': 10305,
+		'j': 10316,
+		'k': 10301,
+		'l': 10308,
+		'm': 10306
 	};
 
 	// map of RSO names
@@ -64,7 +64,7 @@ $(function() {
 	// local variables
 	let props = {};		// per-probe data
 	let view, map;		// openlayers
-	let probes;			// openlayers data source object
+	let probes;		// openlayers data source object
 
 	//------------------------------------------------------------------
 	//
@@ -77,6 +77,7 @@ $(function() {
 			top: 1,
 			scale: 100,
 			letter: undefined,
+			site: undefined,
 		});
 	}
 
@@ -161,7 +162,7 @@ $(function() {
 
 		// cache fastest entry found
 		if (p.fast === undefined || ms < p.fast.ms) {
-		  p.fast = { letter, site, ms };
+			p.fast = { letter, site, ms };
 		}
 	}
 
@@ -177,6 +178,9 @@ $(function() {
 				updateMeasurements(+probe, letter, site, ms);
 			}
 		}).then(() => {
+			if (letter === state.letter) {
+				buildSiteCodes();
+			}
 			pending.delete(letter);
 			showPending();
 		}).then(redraw);
@@ -239,9 +243,11 @@ $(function() {
 		size = Math.floor(10 * size) / 10.0;
 
 		let ms;
+
 		if (state.letter) {
 			const d = p.detail[state.letter];
 			if (!d) return;
+			if (state.site && (state.site !== d.site)) return;
 			ms = d.ms;
 		} else if (state.top === 1) {						// short cut
 			ms = p.fast.ms;
@@ -359,7 +365,16 @@ $(function() {
 
 	function changeLetter(evt) {
 		state.letter = evt.target.value || undefined;
+		state.site = undefined;
 		$('#rinput').prop('disabled', !!state.letter);
+		$('#sclabel,#site').toggle(!!state.letter);
+		buildSiteCodes();
+		putState();
+		redraw();
+	}
+
+	function changeSite(evt) {
+		state.site = evt.target.value || undefined;
 		putState();
 		redraw();
 	}
@@ -401,7 +416,7 @@ $(function() {
 		const canvas = document.getElementById('legend');
 		const ctx = canvas.getContext('2d');
 		for (let x = 0; x < canvas.width; ++x) {
-			const [h, col] =  getColour(x, canvas.width - 1);
+			const [h, col] = getColour(x, canvas.width - 1);
 			ctx.strokeStyle = col;
 			ctx.strokeRect(x, 0, x, canvas.height);
 		}
@@ -436,6 +451,46 @@ $(function() {
 
 	//------------------------------------------------------------------
 
+	function getSiteCodes() {
+		const sites = new Set();
+		Object.values(props).forEach(p => {
+			let d = p.detail[state.letter];
+			if (d) {
+				sites.add(d.site);
+			}
+		});
+		return Array.from(sites).sort();
+	}
+
+	function buildSiteCodes() {
+
+		// fill default "all" option
+		$('#site').empty();
+		$('<option>', {
+			value: '',
+			text: '- all -',
+			selected: !state.site
+		}).appendTo('#site');
+
+		// populate dropdown
+		for (const s of getSiteCodes()) {
+			$('<option>', {
+				value: s,
+				text: s.toUpperCase(),
+				selected: state.site == s
+			}).appendTo('#site');
+		}
+	}
+
+	function setupSiteCodes() {
+		buildSiteCodes();
+		$('#site')
+			.on('change', changeSite)
+			.val(state.site);
+	}
+
+	//------------------------------------------------------------------
+
 	function setupLetters() {
 
 		// populate dropdown
@@ -461,6 +516,7 @@ $(function() {
 	getState();
 	setupLegend();
 	setupScaleSlider();
+	setupSiteCodes();
 
 	if (letters.length > 1) {
 		setupTopSlider();

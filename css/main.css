@@ -27,12 +27,13 @@ html, body {
 	height: 16px;
 }
 
-#rlabel, #slabel, #llabel {
+#rlabel, #slabel, #llabel, #sclabel {
 	font-size: 12px;
+	margin-top: 6px;
 }
 
-#letter {
-	margin-top: 6px;
+#letter, #site {
+	margin-bottom: 6px;
 }
 
 #rinput, #sinput {
