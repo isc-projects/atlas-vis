@@ -76,7 +76,7 @@ $(function() {
 			center: [0, 30],
 			top: 1,
 			scale: 100,
-			letter: undefined,
+			letter: letters.length === 1 ? letters[0] : undefined,
 			site: undefined,
 		});
 	}
@@ -522,6 +522,8 @@ $(function() {
 		setupTopSlider();
 		setupLetters();
 		$('#multi').show();
+	} else {
+		$('#sclabel,#site').show();
 	}
 
 	buildMap();
