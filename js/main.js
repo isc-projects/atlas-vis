@@ -169,12 +169,12 @@ $(function() {
 	async function loadMeasurements(letter) {
 
 		const m = measurements[letter];
-		const url = `${apiUrl}/measurements/${m}/latest/?fields=probe_id,responses.0.response_time,responses.0.abuf.answers.0.data.0&freshness=1800`;
+		const url = `${apiUrl}/measurements/${m}/latest/?fields=responses.0.response_time,responses.0.abuf.answers.0.data.0&freshness=1800&use_keys=true`;
 
 		showPending();
 
 		return fetch(url).then(res => res.json()).then(r => {
-			for (let [probe, ms, site] of r) {
+			for (let [probe, [[ms, site]]] of Object.entries(r)) {
 				updateMeasurements(+probe, letter, site, ms);
 			}
 		}).then(() => {
