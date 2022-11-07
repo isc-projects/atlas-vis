@@ -43,16 +43,24 @@ $(function() {
 
 	// map of regexes that extract the RSO's site-specific code from a hostname.bind string
 	const regexes = {
-		'a': /^(?:rootns-|nnn1-)([a-z]{3})\d$/,
+		'a': [
+			/^(?:rootns-|nnn1-)([a-z]{3})\d+$/,
+			/^(?:rootns-|nnn1-)el([a-z]{3})\d+$/,
+			/^(?:rootns-|nnn1-)([a-z]{5})-\d+[a-z]?$/,
+		],
 		'b': /^b\d-([a-z]{3})$/,
 		'c': /^([a-z]{3})\d[a-z]\.c\.root-servers\.org$/,
 		'd': /^([a-z]{4})\d\.droot\.maxgigapop\.net$/,
-		'e': /^(?:[a-z]\d+)\.([a-z]{3}[a-z]?)\.eroot$/,
+		'e': /^(?:[a-z]\d+)\.([a-z]{3})[a-z0-9]?\.eroot$/,
 		'f': /^([a-z]{3})(?:\d[a-z]|\.cf)\.f\.root-servers\.org$/,
 		'g': /^groot-?-(.*?)-.*?(\.net)?$/,
 		'h': /^\d+\.([a-z]{3})\.h\.root-servers\.org$/,
 		'i': /^s\d\.([a-z]{3})$/,
-		'j': /^(?:rootns-(?:el)?|nnn1-)([a-z]{3})\d$/,
+		'j': [
+			/^(?:rootns-|nnn1-)([a-z]{3})\d+$/,
+			/^(?:rootns-|nnn1-)el([a-z]{3})\d+$/,
+			/^(?:rootns-|nnn1-)([a-z]{5})-\d+[a-z]?$/,
+		],
 		'k': /^.*?\.([a-z]{2}-[a-z]{3})\.k\.ripe\.net$/,
 		'l': /^([a-z]{2}-[a-z]{3})-[a-z]{2}$/,
 		'm': /^m-([a-z]{3})(-[a-z]+)?-\d$/
@@ -120,8 +128,8 @@ $(function() {
 		for (let hostname of hostnames) {
 			const map = mismatches.get(hostname);
 			console.log(hostname);
-			for (let [letter, list] of map) {
-				console.log(letter, list)
+			for (let [letter, list] of new Map([...map].sort())) {
+				console.log('  ' + letter + ':', JSON.stringify(list))
 			}
 		}
 	}
@@ -149,21 +157,26 @@ $(function() {
 		if (!hostname) return;
 		hostname = hostname.toLowerCase();
 
-		const match = regexes[letter].exec(hostname);
-		if (!match) {
-			logMismatch(probe, letter, hostname);
-			return;
+        const re = regexes[letter];
+        const a = Array.isArray(re) ? re : [ re ];
+
+		for (let re of a) {
+			const match = re.exec(hostname);
+			if (match) {
+				const site = match[1];
+				const p = props[probe] = props[probe] || { detail: {} };
+
+				p.detail[letter] = { site, ms };
+
+				// cache fastest entry found
+				if (p.fast === undefined || ms < p.fast.ms) {
+					p.fast = { letter, site, ms };
+				}
+				return;
+			}
 		}
 
-		const site = match[1];
-		const p = props[probe] = props[probe] || { detail: {} };
-
-		p.detail[letter] = { site, ms };
-
-		// cache fastest entry found
-		if (p.fast === undefined || ms < p.fast.ms) {
-			p.fast = { letter, site, ms };
-		}
+		logMismatch(probe, letter, hostname);
 	}
 
 	async function loadMeasurements(letter) {
