@@ -182,7 +182,7 @@ $(function() {
 	async function loadMeasurements(letter) {
 
 		const m = measurements[letter];
-		const url = `${apiUrl}/measurements/${m}/latest/?fields=responses.0.response_time,responses.0.abuf.answers.0.data.0&freshness=1800&use_keys=true`;
+		const url = `${apiUrl}/measurements/${m}/latest/?fields=responses.0.response_time,responses.0.abuf.answers.0.data.0&freshness=900&use_keys=true`;
 
 		showPending();
 
@@ -289,16 +289,23 @@ $(function() {
 
 	//------------------------------------------------------------------
 
+	function escapeHtml(text) {
+	    return text.replace(/[\"&<>]/g, function (a) {
+		return { '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;' }[a];
+		});
+	}
+
 	function showProbeMeasurements(prb_id) {
 		const p = props[prb_id];
 		const { letter, ms, site } = p.fast;
 
 		const detail = Array.from(Object.entries(p.detail))
 			.sort((a, b) => a[1].ms - b[1].ms)
-			.map(([k, v]) => `${k.toUpperCase()}: ${v.ms.toFixed(1)} (${v.site.toUpperCase()})`)
+			.map(([k, v]) => [k, escapeHtml(`${k.toUpperCase()}: ${v.ms.toFixed(1)} (${v.site.toUpperCase()})`)])
+			.map(([k, v]) => (state.letter === k) ? `<b>${v}</b>` : v)
 			.join(', ');
 
-		$('#measurements').text(detail);
+		$('#measurements').html(detail);
 	}
 
 	function buildMap() {
