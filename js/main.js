@@ -67,12 +67,12 @@ $(function() {
 	};
 
 	// persistent state, to go in the URL
-	const state = {};
+	const state = { proto: 4 };
 
 	// local variables
-	let props = {};		// per-probe data
-	let view, map;		// openlayers
-	let probes;		// openlayers data source object
+	let props = { 4: {}, 6: {}};	// per-probe data
+	let view, map;			// openlayers
+	let probes;			// openlayers data source object
 
 	//------------------------------------------------------------------
 	//
@@ -84,6 +84,7 @@ $(function() {
 			center: [0, 30],
 			top: 1,
 			scale: 100,
+			proto: 4,
 			letter: letters.length === 1 ? letters[0] : undefined,
 			site: undefined,
 		});
@@ -142,7 +143,7 @@ $(function() {
 
 	function showPending() {
 		$('#progress').show();
-		$('#pending').show().text('Loading: ' + Array.from(pending.values()).join(' ').toUpperCase());
+		$('#pending').show().text(`Loading IPv${state.proto}: ` + Array.from(pending.values()).join(' ').toUpperCase());
 	}
 
 	function hidePending() {
@@ -164,7 +165,7 @@ $(function() {
 			const match = re.exec(hostname);
 			if (match) {
 				const site = match[1];
-				const p = props[probe] = props[probe] || { detail: {} };
+				const p = props[state.proto][probe] = props[state.proto][probe] || { detail: {} };
 
 				p.detail[letter] = { site, ms };
 
@@ -181,7 +182,11 @@ $(function() {
 
 	async function loadMeasurements(letter) {
 
-		const m = measurements[letter];
+		let m = measurements[letter];
+		if (state.proto === 6) {
+			m += 1000;
+		}
+
 		const url = `${apiUrl}/measurements/${m}/latest/?fields=responses.0.response_time,responses.0.abuf.answers.0.data.0&freshness=900&use_keys=true`;
 
 		showPending();
@@ -248,7 +253,7 @@ $(function() {
 	function getProbeStyle(feature, resolution) {
 
 		const id = feature.getId();
-		const p = props[id];
+		const p = props[state.proto][id];
 		if (!p) return;
 
 		// vary circle size by zoom factor
@@ -296,7 +301,7 @@ $(function() {
 	}
 
 	function showProbeMeasurements(prb_id) {
-		const p = props[prb_id];
+		const p = props[state.proto][prb_id];
 		const { letter, ms, site } = p.fast;
 
 		const detail = Array.from(Object.entries(p.detail))
@@ -393,6 +398,16 @@ $(function() {
 		redraw();
 	}
 
+	async function changeProto(evt) {
+		state.proto = +evt.target.value || 4;
+		if (Object.keys(props[state.proto]).length === 0) {
+			await loadAllMeasurements();
+			hidePending();
+		}
+		putState();
+		redraw();
+	}
+
 	function changeSite(evt) {
 		state.site = evt.target.value || undefined;
 		putState();
@@ -473,7 +488,7 @@ $(function() {
 
 	function getSiteCodes() {
 		const sites = new Set();
-		Object.values(props).forEach(p => {
+		Object.values(props[state.proto]).forEach(p => {
 			let d = p.detail[state.letter];
 			if (d) {
 				sites.add(d.site);
@@ -529,12 +544,26 @@ $(function() {
 	}
 
 	//------------------------------------------------------------------
+
+	function setupProto() {
+		$('#proto option').each(el => {
+			$(el).attr('selected', state.proto === +el.value);
+		});
+
+		$('#proto')
+			.on('change', changeProto)
+			.val(state.proto.toString()).
+			trigger('change');
+	}
+
+	//------------------------------------------------------------------
 	//
 	// main application startup
 	//
 	getDefaults();
 	getState();
 	setupLegend();
+	setupProto();
 	setupScaleSlider();
 	setupSiteCodes();
 
