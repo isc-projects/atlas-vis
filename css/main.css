@@ -27,7 +27,8 @@ html, body {
 	height: 16px;
 }
 
-#rlabel, #slabel, #llabel, #sclabel {
+label {
+	display: block;
 	font-size: 12px;
 	margin-top: 6px;
 }

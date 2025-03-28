@@ -418,7 +418,7 @@ $(function() {
 		state.letter = evt.target.value || undefined;
 		state.site = undefined;
 		$('#rinput').prop('disabled', !!state.letter);
-		$('#sclabel,#site').toggle(!!state.letter);
+		$('#site').parent().toggle(!!state.letter);
 		buildSiteCodes();
 		putState();
 		redraw();
@@ -447,11 +447,11 @@ $(function() {
 			case 3: suff = "rd"; break;
 		}
 
-		$('#rlabel').text(`Color by ${v}${suff} Fastest`);
+		$('label[for="rinput"]').text(`Color by ${v}${suff} Fastest`);
 	}
 
 	function displayScale() {
-		$('#slabel').text(`Latency range 0 - ${this.value} ms`);
+		$('label[for="sinput"]').text(`Latency range 0 - ${this.value} ms`);
 	}
 
 	function mouseOver(evt) {

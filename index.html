@@ -9,33 +9,35 @@
 <div id="container">
 <div id="map"> </div>
 <div id="controls">
-  <div>
-    <canvas id="legend" width="200" height="16"></canvas>
-  </div>
-  <div id="slabel"></div>
-  <div>
-    <input id="sinput" type="range" min="10" max="500" list="sticks"/>
-  </div>
-  <div id="protolabel" style="display: none">Protocol</div>
+  <label for="proto">Protocol</label>
   <select id="proto">
     <option value="4">IPv4</option>
     <option value="6">IPv6</option>
   </select>
+  <label for="sinput"></label>
+  <div>
+    <input id="sinput" type="range" min="10" max="500" list="sticks"/>
+  </div>
+  <div>
+    <canvas id="legend" width="200" height="16"></canvas>
+  </div>
   <div id="multi" style="display: none">
     <br/>
-    <div id="rlabel"></div>
+    <label for="rinput"></label>
     <div>
       <input id="rinput" type="range" min="1" max="13" list="rticks"/>
     </div>
-    <div id="llabel">or by Root Letter</div>
+    <label for="letter">or by Root Letter</label>
     <select id="letter">
       <option value="">- all -</option>
     </select>
   </div>
-  <div id="sclabel" style="display: none">by site code</div>
-  <select id="site" style="display: none">
-    <option value="">- all -</option>
-  </select>
+  <div style="display: none">
+    <label for="site">by site code</label>
+    <select id="site">
+      <option value="">- all -</option>
+    </select>
+  </div>
 </div>
 <div id="key">
 </div>
