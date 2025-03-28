@@ -5,7 +5,7 @@ $(function() {
 	const apiUrl = 'https://atlas.ripe.net/api/v2';
 
 	// which root letters to consider
-	const letters = [ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm' ];
+	const letters = new Set([ 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm' ]);
 
 	// map of RIPE (IPv4) root system tests per root-letter
 	const measurements = {
@@ -70,7 +70,9 @@ $(function() {
 	const state = { proto: 4 };
 
 	// local variables
-	let props = { 4: {}, 6: {}};	// per-probe data
+	const props = { 4: {}, 6: {}};	// per-probe data
+	const loaded = { 4: new Set(), 6: new Set() };
+	let pending = new Set();
 	let view, map;			// openlayers
 	let probes;			// openlayers data source object
 
@@ -85,7 +87,7 @@ $(function() {
 			top: 1,
 			scale: 100,
 			proto: 4,
-			letter: letters.length === 1 ? letters[0] : undefined,
+			letter: letters.size === 1 ? Array.from(letters)[0] : undefined,
 			site: undefined,
 		});
 	}
@@ -94,6 +96,10 @@ $(function() {
 		var hash = window.location.hash.substr(1);
 		if (hash) {
 			$.extend(true, state, JSON.parse(window.unescape(hash)));
+		}
+
+		if (state.proto !== 4 && state.proto !== 6) {
+			state.proto = 4;
 		}
 
 		// write back to hash
@@ -139,8 +145,6 @@ $(function() {
 	//
 	// progress bar handling
 	//
-	const pending = new Set(letters);
-
 	function showPending() {
 		$('#progress').show();
 		$('#pending').show().text(`Loading IPv${state.proto}: ` + Array.from(pending.values()).join(' ').toUpperCase());
@@ -154,18 +158,18 @@ $(function() {
 	//
 	// AJAX and data handling
 	//
-	function updateMeasurements(probe, letter, hostname, ms) {
+	function updateMeasurements(proto, probe, letter, hostname, ms) {
 		if (!hostname) return;
 		hostname = hostname.toLowerCase();
 
-        const re = regexes[letter];
-        const a = Array.isArray(re) ? re : [ re ];
+		const re = regexes[letter];
+		const a = Array.isArray(re) ? re : [ re ];
 
 		for (let re of a) {
 			const match = re.exec(hostname);
 			if (match) {
 				const site = match[1];
-				const p = props[state.proto][probe] = props[state.proto][probe] || { detail: {} };
+				const p = props[proto][probe] = props[proto][probe] || { detail: {} };
 
 				p.detail[letter] = { site, ms };
 
@@ -180,34 +184,54 @@ $(function() {
 		logMismatch(probe, letter, hostname);
 	}
 
-	async function loadMeasurements(letter) {
+	async function loadMeasurements(proto, letter) {
 
 		let m = measurements[letter];
-		if (state.proto === 6) {
+		if (proto === 6) {
 			m += 1000;
 		}
 
 		const url = `${apiUrl}/measurements/${m}/latest/?fields=responses.0.response_time,responses.0.abuf.answers.0.data.0&freshness=900&use_keys=true`;
 
-		showPending();
-
 		return fetch(url).then(res => res.json()).then(r => {
 			for (let [probe, [[ms, site]]] of Object.entries(r)) {
-				updateMeasurements(+probe, letter, site, ms);
+				updateMeasurements(proto, +probe, letter, site, ms);
 			}
 		}).then(() => {
 			if (letter === state.letter) {
 				buildSiteCodes();
 			}
+			loaded[proto].add(letter);
 			pending.delete(letter);
 			showPending();
 		}).then(redraw);
 
 	}
 
-	function loadAllMeasurements() {
-		const promises = letters.map(loadMeasurements);
-		return Promise.all(promises);
+	let loading = false;
+
+	async function loadAllMeasurements() {
+		if (loading) return;
+		loading = true;
+
+		$('#proto').prop('disabled', true);
+		const proto = state.proto;
+		pending = letters.difference(loaded[proto]);
+		const needed = Array.from(pending);
+
+		showPending();
+		try {
+			const promises = needed.map(letter => loadMeasurements(proto, letter));
+			await Promise.all(promises);
+		} catch (e) {
+			console.trace(e);
+		}
+		hidePending();
+
+		$('#proto').prop('disabled', false);
+		loading = false;
+
+		showMismatches();
 	}
 
 	//------------------------------------------------------------------
@@ -295,13 +319,15 @@ $(function() {
 	//------------------------------------------------------------------
 
 	function escapeHtml(text) {
-	    return text.replace(/[\"&<>]/g, function (a) {
-		return { '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;' }[a];
+		return text.replace(/[\"&<>]/g, function (a) {
+			return { '"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;' }[a];
 		});
 	}
 
 	function showProbeMeasurements(prb_id) {
 		const p = props[state.proto][prb_id];
+		if (!p) return;
+
 		const { letter, ms, site } = p.fast;
 
 		const detail = Array.from(Object.entries(p.detail))
@@ -400,10 +426,7 @@ $(function() {
 
 	async function changeProto(evt) {
 		state.proto = +evt.target.value || 4;
-		if (Object.keys(props[state.proto]).length === 0) {
-			await loadAllMeasurements();
-			hidePending();
-		}
+		await loadAllMeasurements();
 		putState();
 		redraw();
 	}
@@ -461,7 +484,7 @@ $(function() {
 
 	function setupTopSlider() {
 
-		const n = letters.length;
+		const n = letters.size;
 
 		// populate option data
 		for (let i = 1; i <= n; ++i) {
@@ -567,7 +590,7 @@ $(function() {
 	setupScaleSlider();
 	setupSiteCodes();
 
-	if (letters.length > 1) {
+	if (letters.size > 1) {
 		setupTopSlider();
 		setupLetters();
 		$('#multi').show();
@@ -580,7 +603,5 @@ $(function() {
 	// once the main data source has loaded, one-off trigger to get the other data
 	probes.once('change', async () => {
 		await loadAllMeasurements();
-		showMismatches();
-		hidePending();
 	});
 });
