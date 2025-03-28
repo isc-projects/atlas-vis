@@ -46,7 +46,7 @@ $(function() {
 		'a': [
 			/^(?:rootns-|nnn1-)([a-z]{3})\d+$/,
 			/^(?:rootns-|nnn1-)el([a-z]{3})\d+$/,
-			/^(?:rootns-|nnn1-)([a-z]{5})-\d+[a-z]?$/,
+			/^(?:rootns-|nnn1-)(?:[a-z]{2})([a-z]{3})-\d+[a-z]?$/,
 		],
 		'b': /^b\d-([a-z]{3})$/,
 		'c': /^([a-z]{3})\d[a-z]\.c\.root-servers\.org$/,
@@ -59,7 +59,7 @@ $(function() {
 		'j': [
 			/^(?:rootns-|nnn1-)([a-z]{3})\d+$/,
 			/^(?:rootns-|nnn1-)el([a-z]{3})\d+$/,
-			/^(?:rootns-|nnn1-)([a-z]{5})-\d+[a-z]?$/,
+			/^(?:rootns-|nnn1-)(?:[a-z]{2})([a-z]{3})-\d+[a-z]?$/,
 		],
 		'k': /^.*?\.([a-z]{2}-[a-z]{3})\.k\.ripe\.net$/,
 		'l': /^([a-z]{2}-[a-z]{3})-[a-z]{2}$/,
