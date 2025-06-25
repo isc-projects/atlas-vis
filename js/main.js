@@ -397,7 +397,6 @@ $(function() {
 			}, { featureProjection: projection });
 
 			probes.addFeatures(features);
-			// success(features);
 		}
 
 		probes = new ol.source.Vector({
