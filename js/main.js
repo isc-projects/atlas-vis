@@ -364,6 +364,11 @@ $(function() {
 		$('#progress').show();
 		$('#pending').show().text('Loading: probe locations');
 
+		/*
+		 * loader for RIPE's archived location files, converting to geoJSON
+		 *
+		 * uses bzip2 library from https://github.com/antimatter15/bzip2.js
+		 */
 		const loader = async (extent, resolution, projection, success, failure) => {
 			let url = 'https://ftp.ripe.net/ripe/atlas/probes/archive/meta-latest';
 
@@ -392,7 +397,7 @@ $(function() {
 			}, { featureProjection: projection });
 
 			probes.addFeatures(features);
-			success(features);
+			// success(features);
 		}
 
 		probes = new ol.source.Vector({
