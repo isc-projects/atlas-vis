@@ -364,8 +364,39 @@ $(function() {
 		$('#progress').show();
 		$('#pending').show().text('Loading: probe locations');
 
+		const loader = async (extent, resolution, projection, success, failure) => {
+			let url = 'https://ftp.ripe.net/ripe/atlas/probes/archive/meta-latest';
+
+			const res = await fetch(url);
+			const buf = await res.arrayBuffer();
+			const bytes = new Uint8Array(buf);
+			const data = bzip2.simple(bzip2.array(bytes));
+			const json = JSON.parse(data);
+
+			const geoJSON = json.objects
+				.filter(o => o.status === 1)
+				.map(o => {
+					return {
+						id: o.id,
+						type: 'Feature',
+						geometry: {
+							type: 'Point',
+							coordinates: [ o.longitude, o.latitude ]
+						}
+					}
+				});
+
+			const features = probes.getFormat().readFeatures({
+				type: 'FeatureCollection',
+				features: geoJSON
+			}, { featureProjection: projection });
+
+			probes.addFeatures(features);
+			success(features);
+		}
+
 		probes = new ol.source.Vector({
-			url: `${apiUrl}/cartography/locations`,
+			loader,
 			format: new ol.format.GeoJSON(),
 			attributions: 'Data from <a href="https://atlas.ripe.net/" target="_blank">RIPE Atlas</a>.'
 		});
