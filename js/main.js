@@ -345,7 +345,6 @@ $(function() {
 			units: 'metric',
 			bar: true,
 			steps: 4,
-			text: true,
 			minWidth: 200,
 			maxWidth: 300,
 		});
