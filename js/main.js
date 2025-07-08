@@ -341,6 +341,15 @@ $(function() {
 
 	function buildMap() {
 
+		const scaleLine = new ol.control.ScaleLine({
+			units: 'metric',
+			bar: true,
+			steps: 4,
+			text: true,
+			minWidth: 200,
+			maxWidth: 300,
+		});
+
 		view = new ol.View({
 			center: ol.proj.fromLonLat(state.center),
 			zoom: state.zoom,
@@ -357,6 +366,10 @@ $(function() {
 						url: 'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'
 					})
 				})
+			],
+			controls: [
+				scaleLine,
+				new ol.control.Zoom()
 			],
 			view: view
 		});

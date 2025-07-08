@@ -85,3 +85,9 @@ label {
 	text-stroke: 1px black;
 	text-fill-color: white;
 }
+
+.ol-scale-bar {
+	top: 24px;
+	left: 48px;
+	bottom: auto;
+}
